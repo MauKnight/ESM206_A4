@@ -1,0 +1,250 @@
+---
+title: "Assignment 4"
+author: "Max Diamond and Mauricio Collado"
+date: "11/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# 1. Introduction
+
+Talk about citation 
+
+# 2. Data and methods
+
+Describe
+
+# 3. Results
+
+## 3.1 Evolution of lobster counts
+
+Since they started to be a MPA (2016 and 2017), the lobster count has a rising trend.
+
+Remember carapace size. 
+
+```{r}
+#1. Attach relevant packages
+
+#install.packages("tidyverse")
+#install.packages("janitor")
+#install.packages("lubridate")
+#install.packages("tidyr")
+#install.packages("here")
+#install.packages("effsize")
+#install.packages("kableExtra")
+
+library(tidyverse)
+library(janitor)
+library(here)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(effsize)
+library(kableExtra)
+
+#We read the lobster dataset, correct NA, clean names and, just in case, lubridate some data.
+
+lobster_abundance <- read_csv(here::here("lobster_abundance_sbc_lter.csv"), 
+                              na="-99999") %>% # We correct the NA format.
+  clean_names() %>% # We correct the columns names
+  mutate(date_new=lubridate::ymd(date)) # We correct the format of the date
+
+#some corrections to day:days
+
+lobster_date <- lobster_abundance %>% 
+   mutate(obs_day=lubridate::day(date_new)) %>%  # We create the variable day
+   mutate(MPA = ifelse(site == "IVEE", "MPA",
+                    ifelse(site == "NAPL", "MPA","non MPA")))
+
+#lobster_date$MPA = ifelse(site=="IVEE"| site=="NAPL","MPA","non MPA")
+
+# We consider the observations counts in each transect
+
+lobster_ok <- lobster_date %>% 
+  group_by(site, year, MPA) %>% # We keep site and year. What about MPA and non MPA?
+  summarize(total_counts=sum(count))   #We sum all the observations
+  #tidyr::uncount (count)
+
+#We create the graph
+
+ggplot(lobster_ok, aes(x=year, y=total_counts, group=site, colour=site)) + # We group and color by site
+  geom_line()+ #we create our line graph
+  # We add the main title and axis labels
+  labs(x="Years", 
+       y="Total lobsters counts per year", 
+       title="Total lobster counts by site, 2012-2018") +
+  theme_minimal() + #We select the theme minimal
+  facet_wrap(~MPA)
+
+
+# correct caption
+# correct legend
+
+```
+
+## 3.2 Lobster size distribution
+
+Analysis of
+
+```{r}
+
+# We create distibution graphs for lobster size
+
+lobster_compare <- lobster_date %>% # We create the dataset to compare
+  filter(year %in% c(2012, 2018)) #We filter the relevant years to compare
+
+
+ggplot()+
+  geom_violin(data=lobster_compare[which(lobster_compare$year==2012),], aes(x=site, y=size_mm), fill="red", alpha=0.4)+
+  geom_violin(data=lobster_compare[which(lobster_compare$year==2018),], aes(x=site, y=size_mm), fill="gray", alpha=0.5)
+
+# DRAW QUANTILES
+
+#ggplot(data=lobster_compare[which(lobster_compare$year==2012),], aes(x=site, y=size_mm))+
+#  geom_violin()
+
+#ggplot(data=lobster_compare[which(lobster_compare$year==2018),], aes(x=site, y=size_mm))+
+#  geom_violin()
+
+
+#We create a histogram graph
+
+
+#ggplot(data=lobster_compare, aes(x=size_mm, group=year, color=year))+
+  #geom_histogram()+
+    #facet_wrap(~site)   
+  
+#ggplot(data=lobster_compare, aes(x=size_mm, group=year, color=year))+
+  #geom_histogram()+
+    #facet_wrap(~site)   
+
+# We create a qq graph
+
+#ggplot(data=lobster_compare[which(lobster_compare$site=="IVEE"),], aes(sample=size_mm))+
+  #geom_qq()+
+    #facet_wrap(~year)
+
+#ggplot(data=lobster_compare[which(lobster_compare$site=="NAPL"),], aes(sample=size_mm))+
+  #geom_qq()+
+    #facet_wrap(~year)
+
+#ggplot(data=lobster_compare[which(lobster_compare$site=="CARP"),], aes(sample=size_mm))+
+  #geom_qq()+
+    #facet_wrap(~year)
+
+#ggplot(data=lobster_compare[which(lobster_compare$site=="MOHK"),], aes(sample=size_mm))+
+  #geom_qq()+
+    #facet_wrap(~year)
+
+#ggplot(data=lobster_compare[which(lobster_compare$site=="AQUE"),], aes(sample=size_mm))+
+  #geom_qq()+
+    #facet_wrap(~year)
+
+
+# Separate site and year
+# Add format
+
+
+```
+
+## 3.3 Test
+
+```{r}
+# Additional datasets
+
+lobster_2012_MPA <- lobster_compare %>% 
+  filter(year==2012, MPA=="MPA") %>% 
+  select(year, size_mm, MPA)
+
+lobster_2012_non <- lobster_compare %>% 
+  filter(year==2012,  MPA=="non MPA") %>% 
+  select(year, size_mm, MPA)
+
+lobster_2018_MPA <- lobster_compare %>% 
+  filter(year==2018, MPA=="MPA") %>% 
+  select(year, size_mm, MPA)
+
+lobster_2018_non <- lobster_compare %>% 
+  filter(year==2018,  MPA=="non MPA") %>% 
+  select(year, size_mm, MPA)
+
+```
+
+
+```{r}
+
+# Basic statistics
+
+# Sample size (non-NA):
+MPA_2012 <- sum(!is.na(lobster_2012_MPA$size_mm))
+non_2012 <- sum(!is.na(lobster_2012_non$size_mm))
+MPA_2018 <- sum(!is.na(lobster_2018_MPA$size_mm))
+non_2018 <- sum(!is.na(lobster_2018_non$size_mm))
+
+# Means (immediate v. 2 min flushing):
+MPA_2012_mean <- mean(lobster_2012_MPA$size_mm, na.rm = TRUE)
+non_2012_mean <- mean(lobster_2012_non$size_mm, na.rm = TRUE)
+MPA_2018_mean <- mean(lobster_2018_MPA$size_mm, na.rm = TRUE)
+non_2018_mean <- mean(lobster_2018_non$size_mm, na.rm = TRUE)
+
+# Medians (immediate v. 2 min flushing):
+MPA_2012_median <- median(lobster_2012_MPA$size_mm, na.rm = TRUE)
+non_2012_median <- median(lobster_2012_non$size_mm, na.rm = TRUE)
+MPA_2018_median <- median(lobster_2018_MPA$size_mm, na.rm = TRUE)
+non_2018_median <- median(lobster_2018_non$size_mm, na.rm = TRUE)
+
+# Standard deviations (immediate v. 2 min flushing):
+MPA_2012_sd <- sd(lobster_2012_MPA$size_mm, na.rm = TRUE)
+non_2012_sd <- sd(lobster_2012_non$size_mm, na.rm = TRUE)
+MPA_2018_sd <- sd(lobster_2018_MPA$size_mm, na.rm = TRUE)
+non_2018_sd <- sd(lobster_2018_non$size_mm, na.rm = TRUE)
+
+```
+
+
+```{r}
+# 2012 MPA vs non MPA
+
+# QQ plot
+
+ggplot(data=lobster_2012, aes(sample=size_mm))+
+  geom_qq()
+
+# Lead concentrations measured in immediately collected samples are much higher than those in water collected after 2 min flushing.
+
+# T test
+
+MPA_versus_non_2012_test = t.test(lobster_2012_MPA$size_mm,lobster_2012_non$size_mm, paired=FALSE)
+MPA_versus_non_2012_test
+
+# Cohen test
+
+MPA_versus_non_2012_d = effsize::cohen.d(lobster_2012_MPA$size_mm,lobster_2012_non$size_mm, na.rm=TRUE)
+MPA_versus_non_2012_d
+
+# ANOVA
+```
+
+
+```{r}
+# 2018 MPA vs non MPA
+```
+
+
+
+```{r}
+# MPA 2012 vs 2018
+```
+
+
+
+```{r}
+# non MPA 2012 vs 2018
+```
+
+# 4. Conclusions and recommendations
+
+#References
