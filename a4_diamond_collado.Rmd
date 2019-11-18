@@ -1,0 +1,444 @@
+---
+title: "Assignment 4"
+author: "Max Diamond and Mauricio Collado"
+date: "11/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+## 1. Introduction
+
+There is evidence that Marine Protected Areas (MPA) have more resilient kelp ecosystems compared with areas without any fishery regulation (Reed, 2019). 
+
+In this context, this work will evaluate the long-term effect of the protection of the local marine ecosystems of  Naples and Isla Vista (Southern California). Specifically, we will analyze the change in the abundance, distribution and carapace size in the spiny lobster population. The spiny lobster plays an crucial role in protecting the kelp forest from being decimated by predators (ie. purple sea urchin). Simultaneously, the kelp forest sustain the marine biodiversity and captures the carbon excess in the sea (Tegner, M. Levin,L., 1983).
+
+In addition, we will control the results in the MPA by comparing them with samples taken from the following non-MPA zones: Arroyo Quemado (Aquemado), Mohawk and Carpinteria. This comparison enables the analysis of fishing pressure on the marine species population.
+
+This document is divided in three parts. In the second section, we review the data and methods. Next, we present the main results . Lastly, we summarize findings in the conclusions. 
+
+## 2. Data and methods
+
+We employ the dataset collected by Santa Barbara Coastal Long-term Ecological Research (LTER). This data has an 8 year time span (2012-2019). It contains two tables: 1) Lobster abundance and size data, collected annually prior to the fishing season, and 2) Fishing pressure measured by counting the total quantity of commercial traps. In this study, we focus only on the first table.
+
+The dataset includes 2 MPA sites IVEE (Isla Vista) and NAPL(Naple) and 3 non MPA sites AQUE (Aquemado), CARP (Carpinteria), and MOHK (Mohawk).
+
+We employ an exploratory data visualization of the lobster distribution, accompanied by general statistics (mean, median, and standard deviation) of the lobster count and carapace size. 
+
+From there, we proceed with Welch's t-test and Cohen's D effect size test. 
+
+## 3. Results
+
+### 3.1 Lobster count analysis
+
+
+```{r}
+#1. Attach relevant packages
+
+library(tidyverse) 
+library(janitor)
+library(here)
+library(dplyr)
+library(effsize) # to do Cohen's effect size test
+library(kableExtra) # to make tables
+
+#We read the lobster dataset, correct NA, clean names and, just in case, lubridate some data.
+
+lobster_abundance <- read_csv(here::here("lobster_abundance_sbc_lter.csv"), 
+                              na="-99999") %>% # We correct the NA format.
+  clean_names() %>% # We correct the columns names
+  mutate(MPA = ifelse(site == "IVEE", "MPA", # if the sites are IVEE or NAPL, name it MPA
+                    ifelse(site == "NAPL", "MPA","non MPA"))) #Otherwise non MPA
+
+# We consider the observations counts in each transect
+
+lobster_counts <- lobster_abundance %>% 
+  group_by(site, year, MPA) %>% # We keep site, MPA and year
+  summarize(total_counts=sum(count))   #We sum all the observations
+
+#We create the graph
+
+# But first we creat our caption format
+titlefigure1 = expression(paste(bold("Figure 1: Trends in lobster abundance at LTER by site."), " Data collected from AQUE, CARP, IVEE, MOHK and NAPL"))
+
+lobstergraph1 <- ggplot(lobster_counts, aes(x=year, y=total_counts, group=site, colour=site)) + # We group and color by site
+  geom_line()+ #we create our line graph
+  # We add the main title and axis labels
+  labs(x="Years", 
+       y="Total lobsters counts per year", 
+       title="Lobster abundance by site, 2012-2018",
+       caption= titlefigure1)+ # we create title, axis title and caption
+  theme_minimal() + # We select the theme minimal
+  facet_wrap(~MPA) # We call different graphs by MPA category
+
+```
+
+Since implementation of MPA in 2012, both sites (NAPL and IVEE) experienced a rising trend in lobster counts until 2015. The year 2015 witnessed a noticeable decline in lobster counts.
+
+We can infer that Naples was more severely impacted by fishing pressure in the year 2015.  It took three years (2016-2018) for the population to return to the previous increasing count trend. Isla Vista, on the other hand, took one year until the counts rose again.
+
+Between 2012-2014, all of the non-MPA sites (CARP, MOHK, AQUE) counts stayed below 125 observations. After 2014, different trends unfold at each of the three sites.In the case of Mohawk, the lobster counts more than doubles, reaching over 250 counted. In 2015, however, the count continues to decrease into the present day. In Carpinteria, the count rises between 2015 and 2017. In 2017, a dramatic count decrease occurs. Finally, Aquemado witnessed a count decrease from 2014 to 2016. In the period, 2016-2017 a marginal population increase happened and then followed but slightly decreased the next year.
+
+```{r}
+lobstergraph1 + 
+  theme(legend.position="top") + # We put the legend above the graphs
+  theme(plot.caption = element_text(hjust = 0)) # We center caption to the left
+```
+
+### 3.2 Lobster size distribution
+
+```{r}
+
+# We create distibution graphs for lobster size
+
+# But first we creat our caption format
+titlefigure2 = expression(paste(bold("Figure 2: Lobster carapace distribution at LTER by site 2012 and 2018."), " Data collected (mm) from AQUE, CARP, IVEE, MOHK and NAPL"))
+
+lobster_compare <- lobster_abundance %>% # We create the dataset to compare
+  filter(year %in% c(2012, 2018)) #We filter the relevant years to compare
+
+lobstergraph2 <- ggplot() +
+  geom_violin(data=lobster_compare[which(lobster_compare$year==2012),], 
+              aes(x=site, y=size_mm), 
+              fill="gray", alpha=0.4) + # Violin for size 2012
+  geom_violin(data=lobster_compare[which(lobster_compare$year==2018),], 
+              aes(x=site, y=size_mm), 
+              fill="red", alpha=0.5) + # Violin for size 2018
+  labs(x="Site", 
+       y="Lobster carapace size (mm)", 
+       title="Distribution of lobster carapace size by site, 2012 and 2018",
+       caption = titlefigure2) #We add title, axis titles and caption
+
+```
+
+
+In the case of the MPA (NAPL and IVEE) during 2018, the distribution accumulates towards increased carapace size compared to 2012. In 2012, the carapace size is notably smaller; the  distribution is concentrated around 60 mm. 
+
+IVEE experienced an extreme change in the data distribution. In 2012, the carapace size is mostly distributed around 60mm, whereas in 2018, the shell size distribution has expanded significantly (around 80 mm). In Naples:, the 2012 size of carapace distribution is mostly even, spread out from 60mm to 90mm.  In 2018, there is a greater concentration on increased shell size, extending from 70mm-100mm before the distribution narrowed out.
+
+In the case of the non MPA sites (CARP, AQUE and MOHK), the distributions are concentrated towards the average values. In 2018, the distributions became more even. Thus, there are no additional meaningful findings, which leads us to do the statistical analysis. 
+
+```{r}
+lobstergraph2 +
+  theme(plot.caption = element_text(hjust = 0)) + # We center caption to the left
+  scale_y_continuous(breaks = pretty(lobster_compare$size_mm, 
+                                     n = 8)) # We improve the ticks of our Y axis
+```
+
+### 3.3 Exploratory analysis
+
+```{r}
+# we create lobster data for each year MPA category (MPA and non MPA) and year (2012 and 2018)
+
+
+# Dataset year 2012 and for MPA sites
+lobster_2012_MPA <- lobster_compare %>% 
+  filter(year==2012, MPA=="MPA") %>% # We keep values 2012 and MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Dataset year 2012 and for non MPA sites
+lobster_2012_non <- lobster_compare %>% 
+  filter(year==2012,  MPA=="non MPA") %>% # We keep values 2012 and non MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Dataset year 2018 and for MPA sites
+lobster_2018_MPA <- lobster_compare %>% 
+  filter(year==2018, MPA=="MPA") %>% # We keep values 2018 and MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Dataset year 2018 and for non MPA sites
+lobster_2018_non <- lobster_compare %>% 
+  filter(year==2018,  MPA=="non MPA") %>% # We keep values 2018 and NON MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Basic statistics
+
+# Sample size 
+MPA_2012 <- sum(!is.na(lobster_2012_MPA$size_mm)) # n of 2012 & MPA
+non_2012 <- sum(!is.na(lobster_2012_non$size_mm)) # n of 2012 & non MPA
+MPA_2018 <- sum(!is.na(lobster_2018_MPA$size_mm)) # n of 2018 & MPA
+non_2018 <- sum(!is.na(lobster_2018_non$size_mm)) # n of 2018 & non MPA
+
+# Means 
+MPA_2012_mean <- round(mean(lobster_2012_MPA$size_mm, na.rm = TRUE), digits = 1) 
+non_2012_mean <- round(mean(lobster_2012_non$size_mm, na.rm = TRUE), digits = 1)
+MPA_2018_mean <- round(mean(lobster_2018_MPA$size_mm, na.rm = TRUE), digits = 1)
+non_2018_mean <- round(mean(lobster_2018_non$size_mm, na.rm = TRUE), digits = 1)
+
+# Medians 
+MPA_2012_median <- round(median(lobster_2012_MPA$size_mm, na.rm = TRUE), digits = 1)
+non_2012_median <- round(median(lobster_2012_non$size_mm, na.rm = TRUE), digits = 1)
+MPA_2018_median <- round(median(lobster_2018_MPA$size_mm, na.rm = TRUE), digits = 1)
+non_2018_median <- round(median(lobster_2018_non$size_mm, na.rm = TRUE), digits = 1)
+
+# Standard deviations 
+MPA_2012_sd <- round(sd(lobster_2012_MPA$size_mm, na.rm = TRUE), digits = 1)
+non_2012_sd <- round(sd(lobster_2012_non$size_mm, na.rm = TRUE), digits = 1)
+MPA_2018_sd <- round(sd(lobster_2018_MPA$size_mm, na.rm = TRUE), digits = 1)
+non_2018_sd <- round(sd(lobster_2018_non$size_mm, na.rm = TRUE), digits = 1)
+
+mean_diff_2012 = abs(non_2012_mean - MPA_2012_mean)
+mean_diff_2018 = abs(non_2018_mean - non_2012_mean)
+  
+MPA_mean_diff = abs(MPA_2018_mean - MPA_2012_mean)
+non_mean_diff = abs(non_2018_mean - non_2012_mean)
+
+MPA_mean_diffp = ((MPA_2018_mean - MPA_2012_mean)/ MPA_2012_mean)*100
+```
+
+In the case of non MPA sites, the mean in the lenght of carapace size dont differ between the year 2012 and 2018. However, there is an important difference in the means of carapace size from 2012 to 2018: they went from `r round(MPA_2012_mean , 1)` mm to `r round(MPA_2018_mean , 1)` mm (an increase of `r round(MPA_mean_diffp , 2)` %). We witness the same behavior with the median.
+
+Hower, the number of observations of the MPA sites in 2012 is concerning because there are only 30 sample observation. It is understandable because this was the first year the policy was active and the data was collected. Furthermore, an additional issue is that there are barely enough MPA observations to uphold the central limit theorem in the year 2012. Specifically, a shortcoming of the available data is that there are many missing observations.
+
+In the case of the non MPA sites, this issue does not apply. In both 2012 and 2018 years, there are more than 150 observations.  Even if the distribution is not normal (check the Appendix section), the central limit theorem still applies. In addition, of all the sites, AQUE is the only one that appears to be evenly distributed in both 2012 and 2018. NAPL, while it appears evenly distributed, only includes five observations in total. Thus, we must consider any inferences with considerable restraint.
+
+```{r}
+# We create the dataframe for the general stats table
+
+# We create a customized table to keep our information of n, mean, median and SD.
+text_general_stats <- data.frame(
+  Items = c("MPA 2012", "Non MPA 2012", "MPA 2018", "Non MPA 2018"),
+  Observations = c(MPA_2012,
+                   non_2012,
+                   MPA_2018,
+                   non_2018), # Observations
+  Mean = c(MPA_2012_mean,
+           non_2012_mean,
+           MPA_2018_mean,
+           non_2018_mean), # mean
+  Median = c(MPA_2012_median,
+             non_2012_median,
+             MPA_2018_median,
+             non_2018_median), # median
+  StandardDeviation = c(MPA_2012_sd,
+                        non_2012_sd,
+                        MPA_2018_sd,
+                        non_2018_sd)) #sd
+
+# We draw the table using kable
+kable(text_general_stats, 
+      caption = "Table 1: General statistics by year and MPA category") %>% # Title
+  kable_styling(bootstrap_options = "striped", full_width = F) # Style
+```
+Own elaboration
+
+### 3.4 Hypothesis tests
+
+In this section, we are going to test the followin null hypothesis:
+
+- The carapace size means between MPA and non MPA sites are the same in 2012.
+- The carapace size means between MPA and non MPA sites are the same in 2018.
+- The carapace size means between 2012 and 2018 are the same for MPA sites.
+- The carapace size means between 2012 and 2018 are the same for non MPA sites.
+
+```{r}
+
+# 2012 MPA vs non MPA
+
+# T test
+MPA_versus_non_2012_test = t.test(lobster_2012_MPA$size_mm,lobster_2012_non$size_mm, paired=FALSE) # compare means MPA 2012 vs non MPA 2012
+#MPA_versus_non_2012_test
+
+# Cohen test
+MPA_versus_non_2012_d = effsize::cohen.d(lobster_2012_MPA$size_mm,lobster_2012_non$size_mm, na.rm=TRUE) # effect size MPA 2012 vs non MPA 2012
+#MPA_versus_non_2012_d
+
+# 2018 MPA vs non MPA
+
+# T test
+MPA_versus_non_2018_test = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE) # compare means MPA 2018 vs non MPA 2018
+#MPA_versus_non_2018_test
+
+
+# Cohen test
+MPA_versus_non_2018_d = effsize::cohen.d(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, na.rm=TRUE) # effect size MPA 2018 vs non MPA 2018
+#MPA_versus_non_2018_d
+
+#////////////////////////////////////////////////////////////
+#////////////////////////////////////////////////////////////
+# MPA 2012 vs 2018
+MPA_versus_2012_2018_test = t.test(lobster_2018_MPA$size_mm,lobster_2012_MPA$size_mm, paired=FALSE) # compare means of MPA 2018 and MPA 2012
+#MPA_versus_2012_2018_test 
+
+# Cohen test
+MPA_versus_2012_2018_d = effsize::cohen.d(lobster_2018_MPA$size_mm,lobster_2012_MPA$size_mm, na.rm=TRUE) # effect size  of MPA 2018 and MPA 2012
+#MPA_versus_2012_2018_d
+
+# non MPA 2012 vs 2018
+non_versus_2012_2018_test = t.test(lobster_2018_non$size_mm, lobster_2012_non$size_mm, paired=FALSE)  # compare means of non MPA 2018 and non MPA 2012
+#non_versus_2012_2018_test 
+
+# Cohen test
+non_versus_2012_2018_d = effsize::cohen.d(lobster_2018_non$size_mm,lobster_2012_non$size_mm, na.rm=TRUE)
+#non_versus_2012_2018_d # effect size  of non MPA 2018 and non MPA 2012
+
+```
+
+
+
+```{r}
+# Table of hypothesis MPA vs non MPA
+
+# We create a table to compare MPA categories in each year
+
+text_hypothesis <- data.frame(
+  Items = c("MPA vs non MPA 2012", "MPA vs non MPA 2018"),
+  "Mean MPA" = c(round(MPA_versus_non_2012_test$estimate[1], digits = 1), 
+                 round(MPA_versus_non_2018_test$estimate[1], digits = 1)), 
+  "Mean non MPA" = c(round(MPA_versus_non_2012_test$estimate[2], digits = 1), 
+                     round(MPA_versus_non_2018_test$estimate[2], digits = 1)), 
+  "P-value" = c(round(MPA_versus_non_2012_test$p.value, digits = 5), 
+               round( MPA_versus_non_2018_test$p.value, digits = 5)), 
+  "Cohen test" = c(abs(round(MPA_versus_non_2012_d$estimate, digits = 2)), 
+                   abs(round(MPA_versus_non_2018_d$estimate, digits = 2)))
+)
+
+# We draw the table using kable
+
+kable(text_hypothesis, caption = "Table 2: T-test and Cohen size effect test") %>% # Title
+  kable_styling(bootstrap_options = "striped", full_width = F) # Style
+
+```
+Own elaboration
+
+**The carapace size means between MPA and non MPA sites are the same in 2012**
+
+For 2012 observations, the MPA site lobster carapace size (`r round(MPA_2012_mean, 2)` $\pm$ `r round(MPA_2012_sd, 2)`, n = `r MPA_2012`) differed significantly from the carapace size in non MPA site (`r round(non_2012_mean, 2)` $\pm$ `r round(non_2012_sd, 2)`, n = `r  non_2012`) by non paired t-test (t(`r round(MPA_versus_non_2012_test$parameter, 2)`) = `r round(MPA_versus_non_2012_test$statistic, 2)`, p-value = `r round(MPA_versus_non_2012_test$p.value, 5)`, *p* < 0.05). The difference in mean lobster shell size between the two groups is `r mean_diff_2012` mm, and the effect size is moderate (Cohen’s d= `r abs(round(MPA_versus_non_2012_d$estimate, 2))`). The moderate effect size supports the evidence of different means in shell size between MPA and non MPA sites in 2012.
+
+**The carapace size means between MPA and non MPA sites are the same in 2018**
+
+For 2018 observations, the MPA site lobster carapace size (`r round(MPA_2018_mean, 2)` $\pm$ `r round(MPA_2018_sd, 2)`, n = `r MPA_2018`) differed significantly from the carapace size in non MPA site (`r round(non_2018_mean, 2)` $\pm$ `r round(non_2018_sd, 2)`, n = `r  non_2018`) by non paired t-test (t(`r round(MPA_versus_non_2018_test$parameter, 2)`) = `r round(MPA_versus_non_2018_test$statistic, 2)`, p-value = `r round(MPA_versus_non_2012_test$p.value, 5)`, *p* < 0.05). The difference in mean lobster shell size between the two groups is `r mean_diff_2018` mm, and the effect size is moderate (Cohen’s d= `r abs(round(MPA_versus_non_2018_d$estimate, 2))`). The moderate effect size supports the evidence of different means in shell size between MPA and non MPA sites in 2018.
+
+
+```{r}
+
+# Table of hypothesis MPA vs non MPA
+
+# We create a table to compare years in each MPA category
+
+text_hypothesis2 <- data.frame(
+  Items = c("MPA 2018 vs 2012", "Non MPA 2018 vs 2012"),
+  "Mean 2018" = c(round(MPA_versus_2012_2018_test$estimate[1], digits = 1), 
+                 round(non_versus_2012_2018_test$estimate[1], digits = 1)), 
+  "Mean 2012" = c(round(MPA_versus_2012_2018_test$estimate[2], digits = 1), 
+                    round(non_versus_2012_2018_test$estimate[2], digits = 1)), 
+  "P-value" = c(round(MPA_versus_2012_2018_test$p.value, digits = 5), 
+                round(non_versus_2012_2018_test$p.value, digits = 5)), 
+  "Cohen test" = c(abs(round(MPA_versus_2012_2018_d$estimate, digits = 2)), 
+                   abs(round(non_versus_2012_2018_d$estimate, digits = 2)))
+)
+
+# We draw the table using kable
+
+kable(text_hypothesis2, caption = "Table 3: T-test and Cohen size effect test") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+
+```
+Own elaboration
+
+
+**The carapace size means between 2012 and 2018 are the same for MPA sites**
+
+
+For MPA observations, the 2012 lobster carapace size (`r round(MPA_2012_mean, 2)` $\pm$ `r round(MPA_2012_sd, 2)`, n = `r MPA_2012`) differed significantly from the carapace size in 2018 (`r round(MPA_2018_mean, 2)` $\pm$ `r round(MPA_2018_sd, 2)`, n = `r  MPA_2018`) by non paired t-test (t(`r round(MPA_versus_2012_2018_test$parameter, 2)`) = `r round(MPA_versus_2012_2018_test$statistic, 2)`, p-value = `r round(MPA_versus_2012_2018_test$p.value, 5)`, *p* < 0.05). The difference in mean lobster shell size between the two groups is `r MPA_mean_diff` mm, and the effect size is high (Cohen’s d= `r abs(round(MPA_versus_2012_2018_d$estimate, 2))`). The high effect size supports the evidence of different means in shell size between the years 2012 and 2018.
+
+**The carapace size means between 2012 and 2018 are the same for non MPA sites**
+
+For non MPA observations, the 2012 lobster carapace size (`r round(non_2012_mean, 2)` $\pm$ `r round(non_2012_sd, 2)`, n = `r non_2012`) is the same as the carapace size in 2018 (`r round(non_2018_mean, 2)` $\pm$ `r round(non_2018_sd, 2)`, n = `r  non_2018`) by non paired t-test (t(`r round(non_versus_2012_2018_test$parameter, 2)`) = `r round(non_versus_2012_2018_test$statistic, 2)`, p-value = `r round(non_versus_2012_2018_test$p.value, 5)`, *p* > 0.05). The difference in mean lobster shell size between the two groups is `r non_mean_diff` mm, and the effect size is low (Cohen’s d= `r abs(round(non_versus_2012_2018_d$estimate, 2))`). But, the effect size indicates that rejecting the null hyphotesis of similarity between the means isnt robust. 
+
+```{r}
+
+# To erase all objects
+#rm(list = ls()) 
+
+#/////////////////////////////////
+# The End
+#/////////////////////////////////
+
+```
+
+## 4. Summary, conclusions and recommendations
+
+1. In terms of lobster count, since implementation of MPA began in 2012, Naples and Isla Vista experienced a rise in lobster counts.  On the other hand, the non MPA sites experienced counts below 125 observations in the period of 2012-2014.  After 2014, each non MPA site exhibited different behavior.  Nevertheless, by the year 2018, they all had went through a decreasing trend of observations.
+
+2. The shell size distribution increase their concenration above values of 75 mm after 6 years of MPA implementation.  Meanwhile, the non MPA sites increased their distribution towards their average carapace values.  Considering the notable increase in lobster carapace size, we can infer that there is an increased proliferation of adult specimens.  This means that more lobsters are reaching a healthy reproductive age. In consequence, there is an overall increase in population.  This supports our previous conclusion. 
+
+3. We reject the null hypothesis that the carapace size means between 2012 and 2018 are the same for MPA sites.  The difference of **`r MPA_mean_diff` mm** of shell size increase corresponds to the MPA implementation.  A high result of effect size supports this finding. 
+
+i) The opposite occurs with non MPA sites.  The means remains similar after 6 years. However, more research is needed because the effect size has a low value. 
+
+ii) The difference between the means of MPA and non MPA sites in 2012 indicates that the locations had different starting points, in regards to carapace size (as shown in figure 2).  That difference in means remains until the year 2018.  Both results are supported by a moderate effect size.
+
+4. The recovery of lobster abundance in MPA zones improves the profitability and sustainability of the Southern California fisheries.  Increased shell size signifies an increase of quality in the lobster market.  MPA regulations enabled an increase in quantity and quality of spiny lobsters, which opens the opportunity for the development of new products with higher added value.  As a result, lobster quotas greatly reduce the incentive for over-fishing.  This, in turn, lengthens the fishing season, allowing fishermen to use their resources more efficiently, invest better, and create more jobs in the process (Kroetz, Collado, et al. 2018).  All of these efforts translate into effective long-term planning.
+
+i) There is a synergy between the positive economic effects of MPA zones and the fight against climate change.  The increase of spiny lobsters significantly benefit kelp forest ecosystems, since they prevent urchins from eating kelp and decimating them .  This serves two vital functions: 1) kelp forests allow the ecosystem to thrive in regards to population biodiversity, and 2) kelp greatly mitigate climate change through carbon sequestration.   
+
+5. The lobster populations in MPA sites have demonstrated resiliency in the face of fishing pressure, bouncing back to healthy levels.  In light of this, **we recommend that MPA regulations continue to be supported and replicate best practices to other marine zones and species.**
+
+## References
++ Kroetz, K., Collado, M., Sanchirico, J., Galarza, E., Corderi, D. Swiedler, and Swiedler (2018). Examination of the Peruvian Anchovy Individual Vessel Quota (IVQ) System. Marine Policy Journal 101, 15-24.
++ Reed (2019). Santa Barbara Coastal Long-term Ecological Research Network Data Portal.Link: https://portal.lternet.edu/nis/mapbrowse?packageid=knb-lter-sbc.77.3
++ Tegner, M. Levin,L. (1983). Spiny lobsters and sea urchins: Analysis of a predator-prey interaction, Journal of Experimental Marine Biology and Ecology, Volume 73, Issue 2, Pages 125-150 Link: https://www.sciencedirect.com/science/article/pii/0022098183900795
+
+## Appendix
+
+```{r}
+
+# We create a qq graph
+
+#qq graph for ivee
+
+ggplot(data=lobster_compare[which(lobster_compare$site=="IVEE"),], aes(sample=size_mm))+
+  geom_qq() +
+  labs(
+       y="Lobster carapace size (mm)", 
+       title="QQ graph of carapace size in Isla Vista",
+       caption = "Appendix 1: QQ graph for shell size (mm)  for IVEE (Isla Vista)") +
+  theme(plot.caption = element_text(hjust = 0)) +
+    facet_wrap(~year)
+
+#qq graph for napl
+ggplot(data=lobster_compare[which(lobster_compare$site=="NAPL"),], aes(sample=size_mm))+
+  geom_qq() +
+  labs(
+       y="Lobster carapace size (mm)", 
+       title="QQ graph of carapace size in Naple",
+       caption = "Appendix 2: QQ graph for shell size (mm)  for NAPL(Naple)") +
+  theme(plot.caption = element_text(hjust = 0)) +
+    facet_wrap(~year)
+
+#qq graph for carp
+ggplot(data=lobster_compare[which(lobster_compare$site=="CARP"),], aes(sample=size_mm))+
+  geom_qq() +
+  labs(
+       y="Lobster carapace size (mm)", 
+       title="QQ graph of carapace size in Carpinteria",
+       caption = "Appendix 3: QQ graph for shell size (mm)  for CARP (Carpinteria)") +
+  theme(plot.caption = element_text(hjust = 0)) +
+    facet_wrap(~year)
+
+#qq graph for mohk
+ggplot(data=lobster_compare[which(lobster_compare$site=="MOHK"),], aes(sample=size_mm))+
+  geom_qq() +
+  labs( 
+       y="Lobster carapace size (mm)", 
+       title="QQ graph of carapace size in Mohawk",
+       caption = "Appendix 4: QQ graph for shell size (mm)  for MOHK (Mohawk)")+
+  theme(plot.caption = element_text(hjust = 0)) +
+    facet_wrap(~year)
+
+#qq graph for aque
+ggplot(data=lobster_compare[which(lobster_compare$site=="AQUE"),], aes(sample=size_mm))+
+  geom_qq() +
+  labs( 
+       y="Lobster carapace size (mm)", 
+       title="QQ graph of carapace size in Aquemada",
+       caption = "Appendix 4: QQ graph for shell size (mm) for AQUE (Aquemado)")+
+  theme(plot.caption = element_text(hjust = 0)) +
+    facet_wrap(~year)
+
+```
+
+
